@@ -1,69 +1,172 @@
-import Image from "next/image";
+import { NavBar } from "@/components/nav-bar";
+import { SystemCard } from "@/components/system-card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  listSistemas,
+  obtenerEstadisticasCatalogo,
+  obtenerOpcionesFiltro,
+} from "@/lib/sistemas/queries";
 
-export default function Home() {
+interface HomeProps {
+  searchParams: Promise<{
+    pais?: string | string[];
+    sector?: string | string[];
+    institucionId?: string | string[];
+    texto?: string | string[];
+  }>;
+}
+
+function primero(valor: string | string[] | undefined): string {
+  return Array.isArray(valor) ? (valor[0] ?? "") : (valor ?? "");
+}
+
+function Estadistica({ valor, label }: { valor: number; label: string }) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="text-center">
+      <div className="text-3xl font-bold text-neutral-900">{valor}</div>
+      <div className="text-sm text-neutral-500">{label}</div>
     </div>
+  );
+}
+
+export default async function Home({ searchParams }: HomeProps) {
+  const raw = await searchParams;
+  const filtros = {
+    pais: primero(raw.pais),
+    sector: primero(raw.sector),
+    institucionId: primero(raw.institucionId),
+    texto: primero(raw.texto),
+  };
+
+  const [resultado, estadisticas, opciones] = await Promise.all([
+    listSistemas({
+      pais: filtros.pais || undefined,
+      sector: filtros.sector || undefined,
+      institucionId: filtros.institucionId || undefined,
+      texto: filtros.texto || undefined,
+      limit: 12,
+    }),
+    obtenerEstadisticasCatalogo(),
+    obtenerOpcionesFiltro(),
+  ]);
+
+  return (
+    <>
+      <NavBar />
+
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="bg-navy-900 px-6 py-20 text-center text-white">
+          <h1 className="mx-auto max-w-2xl text-4xl font-bold text-balance">
+            Transparencia algorítmica para democracias más fuertes
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-neutral-200">
+            Evaluamos públicamente los sistemas de decisión automatizada que usan instituciones
+            públicas de la región, con base en la metodología ITAD.
+          </p>
+
+          <form
+            action="/"
+            className="mx-auto mt-8 flex max-w-xl overflow-hidden rounded-full bg-white"
+          >
+            <input
+              type="text"
+              name="texto"
+              defaultValue={filtros.texto}
+              placeholder="Buscar por nombre de sistema o institución..."
+              className="flex-1 px-5 py-3 text-sm text-neutral-900 outline-none"
+            />
+            <button
+              type="submit"
+              className="bg-teal-500 px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+            >
+              Buscar
+            </button>
+          </form>
+        </section>
+
+        {/* Filtros */}
+        <section className="mx-auto max-w-6xl px-6 py-8">
+          <form action="/" className="flex flex-wrap items-center gap-3">
+            <select
+              name="pais"
+              defaultValue={filtros.pais}
+              className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            >
+              <option value="">País</option>
+              {opciones.paises.map((pais) => (
+                <option key={pais} value={pais}>
+                  {pais}
+                </option>
+              ))}
+            </select>
+
+            <select
+              name="sector"
+              defaultValue={filtros.sector}
+              className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            >
+              <option value="">Sector</option>
+              {opciones.sectores.map((sector) => (
+                <option key={sector} value={sector}>
+                  {sector}
+                </option>
+              ))}
+            </select>
+
+            <select
+              name="institucionId"
+              defaultValue={filtros.institucionId}
+              className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            >
+              <option value="">Institución</option>
+              {opciones.instituciones.map((institucion) => (
+                <option key={institucion.id} value={institucion.id}>
+                  {institucion.nombre}
+                </option>
+              ))}
+            </select>
+
+            <Input
+              type="text"
+              name="texto"
+              defaultValue={filtros.texto}
+              placeholder="Palabra clave..."
+              className="max-w-[200px]"
+            />
+
+            <Button type="submit">Filtrar</Button>
+          </form>
+        </section>
+
+        {/* Estadísticas */}
+        <section className="mx-auto grid max-w-6xl grid-cols-2 gap-6 border-y border-neutral-200 px-6 py-8 sm:grid-cols-4">
+          <Estadistica valor={estadisticas.sistemasEvaluados} label="Sistemas evaluados" />
+          <Estadistica valor={estadisticas.paises} label="Países (piloto)" />
+          <Estadistica valor={estadisticas.sectores} label="Sectores" />
+          <Estadistica valor={estadisticas.indicadoresItad} label="Indicadores ITAD" />
+        </section>
+
+        {/* Sistemas destacados */}
+        <section className="mx-auto max-w-6xl px-6 py-12">
+          <h2 className="mb-6 text-xl font-semibold text-neutral-900">Sistemas destacados</h2>
+
+          {resultado.data.length === 0 ? (
+            <p className="text-neutral-500">
+              {filtros.pais || filtros.sector || filtros.institucionId || filtros.texto
+                ? "No hay sistemas publicados que coincidan con estos filtros."
+                : "Todavía no hay sistemas publicados en el catálogo."}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {resultado.data.map((sistema) => (
+                <SystemCard key={sistema.id} sistema={sistema} />
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    </>
   );
 }

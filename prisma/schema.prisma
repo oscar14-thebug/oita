@@ -1,0 +1,293 @@
+// Prisma schema — Plataforma OITA (Observatorio Interamericano de Transparencia Algorítmica)
+// Basado en OITA_Esquema_BD_v1.md (Anexo A, metodología ITAD 0.9)
+// La URL de conexión vive en prisma.config.ts / DATABASE_URL, no aquí (Prisma 7).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RolUsuario {
+  analista
+  revisor
+  editor
+  admin
+
+  @@map("rol_usuario")
+}
+
+enum EstadoSistema {
+  piloto
+  prueba
+  produccion
+  suspendido
+  retirado
+
+  @@map("estado_sistema")
+}
+
+enum NivelFuente {
+  A
+  B
+  C
+  D
+
+  @@map("nivel_fuente")
+}
+
+// ---------------------------------------------------------------------------
+// Tablas de configuración: editables sin desplegar código.
+// ---------------------------------------------------------------------------
+
+/// Agrupa indicadores y define su peso relativo (los pesos suman 100 entre todas).
+model Dimension {
+  id     String @id @db.VarChar(10)
+  nombre String
+  peso   Int
+  orden  Int
+
+  indicadores Indicador[]
+
+  @@map("dimensiones")
+}
+
+/// Ficha evaluativa de cada indicador ITAD, con su rúbrica 0-3 en jsonb.
+model Indicador {
+  id                   String  @id @db.VarChar(20)
+  dimensionId          String  @map("dimension_id") @db.VarChar(10)
+  nombre               String
+  preguntaEvaluativa   String  @map("pregunta_evaluativa")
+  pesoInterno          Int     @map("peso_interno")
+  rubrica              Json
+  notaInterpretativa   String? @map("nota_interpretativa")
+  versionMetodologiaId String  @map("version_metodologia_id") @db.Uuid
+  activo               Boolean @default(true)
+
+  dimension          Dimension          @relation(fields: [dimensionId], references: [id])
+  versionMetodologia VersionMetodologia @relation(fields: [versionMetodologiaId], references: [id])
+  puntuaciones       Puntuacion[]
+  controlCalidad     ControlCalidad[]
+
+  @@index([dimensionId])
+  @@index([versionMetodologiaId])
+  @@map("indicadores")
+}
+
+/// Cambiar un peso, agregar/retirar un indicador o publicar una nueva versión de la
+/// metodología es un INSERT/UPDATE sobre estas tablas, nunca un despliegue de código.
+model VersionMetodologia {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero        String   @unique @db.VarChar(20)
+  fecha         DateTime @db.Date
+  changelog     String
+  fechaEfectiva DateTime @map("fecha_efectiva") @db.Date
+
+  indicadores     Indicador[]
+  sistemas        Sistema[]
+  historialFichas HistorialFicha[]
+
+  @@map("versiones_metodologia")
+}
+
+// ---------------------------------------------------------------------------
+// Tablas de contenido.
+// ---------------------------------------------------------------------------
+
+model Institucion {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre            String
+  pais              String  @db.VarChar(2)
+  sector            String
+  unidadResponsable String? @map("unidad_responsable")
+  contacto          String?
+
+  sistemas Sistema[]
+
+  @@index([pais])
+  @@map("instituciones")
+}
+
+model Usuario {
+  id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre   String
+  email    String     @unique
+  rol      RolUsuario
+  creadoEn DateTime   @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  puntuaciones          Puntuacion[]
+  fuentesRegistradas    Fuente[]
+  historialFichas       HistorialFicha[]
+  controlCalidadPrimer  ControlCalidad[] @relation("primerEvaluador")
+  controlCalidadSegundo ControlCalidad[] @relation("segundoEvaluador")
+  controlCalidadTercero ControlCalidad[] @relation("tercerRevisor")
+
+  @@map("usuarios")
+}
+
+/// La "ficha" de un sistema algorítmico evaluado.
+model Sistema {
+  id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombreOficial             String        @map("nombre_oficial")
+  versionSistema            String?       @map("version_sistema")
+  estado                    EstadoSistema
+  institucionId             String        @map("institucion_id") @db.Uuid
+  finalidad                 String
+  proceso                   String
+  usuariosDescripcion       String        @map("usuarios_descripcion")
+  poblacionAfectada         String?       @map("poblacion_afectada")
+  gradoAutomatizacion       String        @map("grado_automatizacion")
+  elegibilidadJustificacion Json          @map("elegibilidad_justificacion")
+  versionMetodologiaId      String        @map("version_metodologia_id") @db.Uuid
+  fechaCreacion             DateTime      @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaUltimaRevision       DateTime      @default(now()) @map("fecha_ultima_revision") @db.Timestamptz(6)
+  // No estaba en OITA_Esquema_BD_v1.md: lo agrega SCRUM-16 para poder distinguir
+  // borrador vs. publicado en el catálogo público (endpoint /publicar, solo admin/editor).
+  publicado                 Boolean       @default(false)
+
+  institucion        Institucion        @relation(fields: [institucionId], references: [id])
+  versionMetodologia VersionMetodologia @relation(fields: [versionMetodologiaId], references: [id])
+  fuentes            Fuente[]
+  puntuaciones       Puntuacion[]
+  controlCalidad     ControlCalidad[]
+  historialFichas    HistorialFicha[]
+  score              SistemaScore?
+
+  @@index([institucionId])
+  @@index([versionMetodologiaId])
+  @@index([estado])
+  @@map("sistemas")
+}
+
+/// Evidencia documental que sustenta una o varias puntuaciones.
+model Fuente {
+  id                     String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sistemaId              String      @map("sistema_id") @db.Uuid
+  urlOIdentificador      String      @map("url_o_identificador")
+  titulo                 String
+  entidadEmisora         String      @map("entidad_emisora")
+  fechaPublicacion       DateTime?   @map("fecha_publicacion") @db.Date
+  fechaConsulta          DateTime    @map("fecha_consulta") @db.Date
+  nivel                  NivelFuente
+  fragmento              String
+  versionSistemaReferida String?     @map("version_sistema_referida")
+  analistaId             String      @map("analista_id") @db.Uuid
+  notas                  String?
+  archivoHash            String?     @map("archivo_hash")
+
+  sistema             Sistema            @relation(fields: [sistemaId], references: [id])
+  analista            Usuario            @relation(fields: [analistaId], references: [id])
+  fuentesPuntuaciones FuentePuntuacion[]
+
+  @@index([sistemaId])
+  @@index([analistaId])
+  @@map("fuentes")
+}
+
+/// Una fila por evaluador y por (sistema, indicador): nunca se sobrescribe, para poder
+/// comparar la doble evaluación en `control_calidad`.
+/// Regla de negocio (aplicada en /lib/evaluaciones, ver README): si es_no_aplicable = true,
+/// justificacion_na es obligatoria.
+model Puntuacion {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sistemaId         String   @map("sistema_id") @db.Uuid
+  indicadorId       String   @map("indicador_id") @db.VarChar(20)
+  valor             Int?     @db.SmallInt
+  esNoAplicable     Boolean  @default(false) @map("es_no_aplicable")
+  justificacionNa   String?  @map("justificacion_na")
+  notaJustificativa String   @map("nota_justificativa")
+  evaluadorId       String   @map("evaluador_id") @db.Uuid
+  fecha             DateTime @default(now()) @db.Timestamptz(6)
+
+  sistema             Sistema            @relation(fields: [sistemaId], references: [id])
+  indicador           Indicador          @relation(fields: [indicadorId], references: [id])
+  evaluador           Usuario            @relation(fields: [evaluadorId], references: [id])
+  fuentesPuntuaciones FuentePuntuacion[]
+
+  @@unique([sistemaId, indicadorId, evaluadorId])
+  @@index([sistemaId])
+  @@index([indicadorId])
+  @@map("puntuaciones")
+}
+
+/// Tabla puente N:N — una fuente puede sustentar varias puntuaciones y una puntuación
+/// puede citar varias fuentes.
+model FuentePuntuacion {
+  puntuacionId String @map("puntuacion_id") @db.Uuid
+  fuenteId     String @map("fuente_id") @db.Uuid
+
+  puntuacion Puntuacion @relation(fields: [puntuacionId], references: [id])
+  fuente     Fuente     @relation(fields: [fuenteId], references: [id])
+
+  @@id([puntuacionId, fuenteId])
+  @@index([fuenteId])
+  @@map("fuentes_puntuaciones")
+}
+
+/// Resuelve la doble evaluación: compara valor_1 / valor_2, calcula la discrepancia y
+/// define el valor_final que efectivamente se publica.
+model ControlCalidad {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sistemaId            String   @map("sistema_id") @db.Uuid
+  indicadorId          String   @map("indicador_id") @db.VarChar(20)
+  primerEvaluadorId    String   @map("primer_evaluador_id") @db.Uuid
+  segundoEvaluadorId   String?  @map("segundo_evaluador_id") @db.Uuid
+  valor1               Int      @map("valor_1") @db.SmallInt
+  valor2               Int?     @map("valor_2") @db.SmallInt
+  discrepancia         Int?     @db.SmallInt
+  tercerRevisorId      String?  @map("tercer_revisor_id") @db.Uuid
+  valorFinal           Int      @map("valor_final") @db.SmallInt
+  decisionAdjudicacion String?  @map("decision_adjudicacion")
+  fecha                DateTime @default(now()) @db.Timestamptz(6)
+
+  sistema          Sistema   @relation(fields: [sistemaId], references: [id])
+  indicador        Indicador @relation(fields: [indicadorId], references: [id])
+  primerEvaluador  Usuario   @relation("primerEvaluador", fields: [primerEvaluadorId], references: [id])
+  segundoEvaluador Usuario?  @relation("segundoEvaluador", fields: [segundoEvaluadorId], references: [id])
+  tercerRevisor    Usuario?  @relation("tercerRevisor", fields: [tercerRevisorId], references: [id])
+
+  @@unique([sistemaId, indicadorId])
+  @@index([sistemaId])
+  @@index([indicadorId])
+  @@map("control_calidad")
+}
+
+/// Versionado completo de la ficha: copia snapshot en cada cambio relevante.
+model HistorialFicha {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sistemaId            String   @map("sistema_id") @db.Uuid
+  snapshot             Json
+  versionMetodologiaId String   @map("version_metodologia_id") @db.Uuid
+  modificadoPorId      String   @map("modificado_por") @db.Uuid
+  fecha                DateTime @default(now()) @db.Timestamptz(6)
+
+  sistema            Sistema            @relation(fields: [sistemaId], references: [id])
+  versionMetodologia VersionMetodologia @relation(fields: [versionMetodologiaId], references: [id])
+  modificadoPor      Usuario            @relation(fields: [modificadoPorId], references: [id])
+
+  @@index([sistemaId])
+  @@map("historial_fichas")
+}
+
+/// Resumen precalculado por sistema (evita recalcular el score en cada visita).
+/// Para el MVP con pocos sistemas puede calcularse al vuelo; se deja modelada para
+/// cuando el catálogo crezca y valga la pena cachear.
+model SistemaScore {
+  sistemaId              String   @id @map("sistema_id") @db.Uuid
+  scoreTotal             Decimal  @map("score_total") @db.Decimal(5, 2)
+  coberturaDocumental    Decimal  @map("cobertura_documental") @db.Decimal(5, 2)
+  distribucion0          Int      @map("distribucion_0")
+  distribucion1          Int      @map("distribucion_1")
+  distribucion2          Int      @map("distribucion_2")
+  distribucion3          Int      @map("distribucion_3")
+  distribucionNa         Int      @map("distribucion_na")
+  puntuacionPorDimension Json     @map("puntuacion_por_dimension")
+  actualizadoEn          DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+
+  sistema Sistema @relation(fields: [sistemaId], references: [id])
+
+  @@map("sistema_score")
+}
