@@ -26,6 +26,13 @@ enum EstadoSistema {
   produccion
   suspendido
   retirado
+  candidato
+  investigacion
+  elegibilidad
+  evaluacion_itad
+  revision
+  publicacion
+  actualizacion
 
   @@map("estado_sistema")
 }

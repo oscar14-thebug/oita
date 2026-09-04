@@ -15,7 +15,7 @@ import {
 
 // Mismos valores que el enum EstadoSistema del schema — hardcodeado acá para no
 // importar el cliente Prisma generado (pesado) en un componente de cliente.
-const ESTADOS = ["piloto", "prueba", "produccion", "suspendido", "retirado"] as const;
+const ESTADOS = ["candidato", "investigacion", "elegibilidad", "evaluacion_itad", "revision", "publicacion", "actualizacion"] as const;
 
 export interface InstitucionOpcion {
   id: string;

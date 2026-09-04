@@ -143,7 +143,7 @@ export default async function Home({ searchParams }: HomeProps) {
         {/* Estadísticas */}
         <section className="mx-auto grid max-w-6xl grid-cols-2 gap-6 border-y border-neutral-200 px-6 py-8 sm:grid-cols-4">
           <Estadistica valor={estadisticas.sistemasEvaluados} label="Sistemas evaluados" />
-          <Estadistica valor={estadisticas.paises} label="Países (piloto)" />
+          <Estadistica valor={estadisticas.paises} label="Países" />
           <Estadistica valor={estadisticas.sectores} label="Sectores" />
           <Estadistica valor={estadisticas.indicadoresItad} label="Indicadores ITAD" />
         </section>

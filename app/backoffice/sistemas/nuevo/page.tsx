@@ -12,7 +12,7 @@ const VALORES_INICIALES: DatosIdentificacionContexto = {
   nombreOficial: "",
   institucionId: "",
   versionSistema: "",
-  estado: "piloto",
+  estado: "candidato",
   finalidad: "",
   proceso: "",
   usuariosDescripcion: "",
