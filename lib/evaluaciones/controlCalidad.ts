@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { recalcularYGuardarScore } from "@/lib/scoring/calcularScoreITAD";
 
 export class ControlCalidadError extends Error {
   status: number;
@@ -125,7 +126,7 @@ export async function resolverControlCalidad(input: ResolverControlCalidadInput)
     }
   }
 
-  return prisma.controlCalidad.upsert({
+  const control = await prisma.controlCalidad.upsert({
     where: {
       sistemaId_indicadorId: { sistemaId: input.sistemaId, indicadorId: input.indicadorId },
     },
@@ -152,4 +153,8 @@ export async function resolverControlCalidad(input: ResolverControlCalidadInput)
       decisionAdjudicacion: input.decisionAdjudicacion ?? null,
     },
   });
+
+  await recalcularYGuardarScore(input.sistemaId);
+
+  return control;
 }

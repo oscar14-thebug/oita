@@ -111,3 +111,49 @@ export async function calcularScoreITAD(sistemaId: string): Promise<ScoreITAD> {
     distribucion,
   };
 }
+
+/**
+ * Recalcula el score de un sistema y lo persiste en `sistema_score` (la tabla de
+ * caché que lee `calcularResumenSistema`). Se invoca cada vez que se adjudica un
+ * indicador (`resolverControlCalidad`), para que el catálogo (Inicio/Explorar, que
+ * lee `sistema.score` directo, sin fallback al cálculo en vivo) no dependa de que
+ * alguien vuelva a visitar la ficha individual para "calentar" la caché.
+ *
+ * Si el sistema todavía no tiene ningún indicador adjudicado (`estado: sin_evaluar`),
+ * no escribe nada — evita persistir una fila con score 0 antes de que exista score real.
+ */
+export async function recalcularYGuardarScore(sistemaId: string): Promise<ScoreITAD> {
+  const score = await calcularScoreITAD(sistemaId);
+
+  if (score.estado === "sin_evaluar" || score.scoreTotal === null) {
+    return score;
+  }
+
+  await prisma.sistemaScore.upsert({
+    where: { sistemaId },
+    create: {
+      sistemaId,
+      scoreTotal: score.scoreTotal,
+      coberturaDocumental: score.coberturaDocumental ?? 0,
+      distribucion0: score.distribucion["0"],
+      distribucion1: score.distribucion["1"],
+      distribucion2: score.distribucion["2"],
+      distribucion3: score.distribucion["3"],
+      distribucionNa: score.distribucion.na,
+      puntuacionPorDimension: score.scorePorDimension ?? {},
+    },
+    update: {
+      scoreTotal: score.scoreTotal,
+      coberturaDocumental: score.coberturaDocumental ?? 0,
+      distribucion0: score.distribucion["0"],
+      distribucion1: score.distribucion["1"],
+      distribucion2: score.distribucion["2"],
+      distribucion3: score.distribucion["3"],
+      distribucionNa: score.distribucion.na,
+      puntuacionPorDimension: score.scorePorDimension ?? {},
+      actualizadoEn: new Date(),
+    },
+  });
+
+  return score;
+}
