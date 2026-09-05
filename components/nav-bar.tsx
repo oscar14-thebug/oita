@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const LINKS = [
   { label: "Inicio", href: "/" },
-  { label: "Explorar", href: "/" },
+  { label: "Explorar", href: "/explorar" },
   { label: "Comparar", href: "/comparar" },
   { label: "Panorama regional", href: "/panorama-regional" },
   { label: "Metodología", href: "/metodologia" },

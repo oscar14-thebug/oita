@@ -1,5 +1,11 @@
 import { NavBar } from "@/components/nav-bar";
+import { Footer } from "@/components/footer";
 import { getScoreBand } from "@/lib/ui/getScoreBand";
+import { obtenerEstadisticasCatalogo } from "@/lib/sistemas/queries";
+
+// Esta página lee la base (fecha de última actualización) — se fuerza dinámica
+// para que ese dato salga siempre en vivo, igual que en Inicio (ver app/page.tsx).
+export const dynamic = "force-dynamic";
 
 const DIMENSIONES = [
   { id: "D1", nombre: "Identificación y finalidad", peso: 15 },
@@ -32,7 +38,16 @@ function Paso({ numero, titulo, children }: { numero: number; titulo: string; ch
   );
 }
 
-export default function SobreOitaPage() {
+export default async function SobreOitaPage() {
+  const estadisticas = await obtenerEstadisticasCatalogo();
+  const ultimaActualizacion = estadisticas.ultimaActualizacion
+    ? new Date(estadisticas.ultimaActualizacion).toLocaleDateString("es", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "—";
+
   return (
     <>
       <NavBar />
@@ -148,14 +163,75 @@ export default function SobreOitaPage() {
           </div>
         </section>
 
-        <footer className="border-t border-neutral-200 px-6 py-8 text-center">
-          <p className="mx-auto max-w-2xl text-sm text-neutral-500">
-            OITA no certifica ni aprueba sistemas. Evalúa la transparencia algorítmica con base en
-            información pública disponible, no la calidad, legalidad ni el impacto del sistema en
-            sí.
-          </p>
-        </footer>
+        <section className="border-t border-neutral-200 px-6 py-12">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="mb-2 text-xl font-semibold text-neutral-900">
+              Transparencia sobre la propia plataforma
+            </h2>
+            <p className="mb-6 text-neutral-500">
+              OITA se aplica a sí misma los mismos criterios de transparencia que exige a los
+              sistemas que evalúa: identificación, responsable, arquitectura y código fuente
+              públicos.
+            </p>
+
+            <dl className="flex flex-col gap-6 rounded-lg border border-neutral-200 p-6">
+              <div>
+                <dt className="text-xs text-neutral-500 uppercase">Identificación y finalidad</dt>
+                <dd className="mt-1 text-neutral-900">
+                  OITA (Observatorio Interamericano de Transparencia Algorítmica), versión 0.1.0
+                  (MVP). Documenta y evalúa públicamente los sistemas de decisión automatizada que
+                  usan instituciones públicas de América Latina, con base en la metodología ITAD.
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-xs text-neutral-500 uppercase">Responsable</dt>
+                <dd className="mt-1 text-neutral-900">
+                  Equipo OITA-CSJAY — proyecto interinstitucional con participación de la Corte
+                  Superior de Justicia de Ayacucho, la Universidad Nacional de San Cristóbal de
+                  Huamanga (UNSCH), el CEDIN-UNMSM, y colaboradores en Brasil y Colombia. El
+                  detalle completo del equipo está en el informe presentado ante la OEA.
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-xs text-neutral-500 uppercase">Arquitectura y tecnología</dt>
+                <dd className="mt-1 text-neutral-900">
+                  Next.js (App Router) full-stack, Prisma + PostgreSQL (Supabase), Tailwind CSS /
+                  shadcn·ui, desplegado en Vercel. La inteligencia artificial se usa únicamente
+                  como herramienta de apoyo al desarrollo de software de esta plataforma —
+                  generación y revisión de código — nunca para evaluar sistemas, asignar
+                  puntuaciones ni decidir qué se publica en el catálogo: esas decisiones son
+                  exclusivamente humanas.
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-xs text-neutral-500 uppercase">Código fuente</dt>
+                <dd className="mt-1 text-neutral-900">
+                  Repositorio público en GitHub:{" "}
+                  <a
+                    href="https://github.com/oscar14-thebug/oita"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-teal-500 hover:underline"
+                  >
+                    github.com/oscar14-thebug/oita
+                  </a>
+                  .
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-xs text-neutral-500 uppercase">Última actualización</dt>
+                <dd className="mt-1 text-neutral-900">{ultimaActualizacion}</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
       </main>
+      <Footer />
     </>
   );
 }

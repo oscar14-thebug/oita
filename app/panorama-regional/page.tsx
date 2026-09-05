@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NavBar } from "@/components/nav-bar";
+import { Footer } from "@/components/footer";
 import { ScoreBadge } from "@/components/score-badge";
 import { PanoramaBarChart } from "@/components/panorama-bar-chart";
 import { Button } from "@/components/ui/button";
@@ -202,6 +203,7 @@ export default async function PanoramaRegionalPage({ searchParams }: PanoramaReg
           )}
         </section>
       </main>
+      <Footer />
     </>
   );
 }

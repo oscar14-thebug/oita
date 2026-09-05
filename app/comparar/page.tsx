@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { NavBar } from "@/components/nav-bar";
+import { Footer } from "@/components/footer";
 import { SystemSelector } from "@/components/system-selector";
 import { ComparadorRadar } from "@/components/comparador-radar";
 import { ScoreBadge } from "@/components/score-badge";
@@ -115,6 +116,7 @@ export default async function ComparadorPage({ searchParams }: ComparadorPagePro
           )}
         </section>
       </main>
+      <Footer />
     </>
   );
 }

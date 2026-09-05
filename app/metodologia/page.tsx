@@ -1,4 +1,5 @@
 import { NavBar } from "@/components/nav-bar";
+import { Footer } from "@/components/footer";
 import { getScoreBand } from "@/lib/ui/getScoreBand";
 
 // Placeholder: pesos y nombres de dimensión confirmados, pero las rúbricas 0-3 de
@@ -98,14 +99,8 @@ export default function MetodologiaPage() {
           </p>
         </section>
 
-        <footer className="border-t border-neutral-200 bg-neutral-50 px-6 py-8 text-center">
-          <p className="mx-auto max-w-2xl text-sm text-neutral-500">
-            OITA no certifica ni aprueba sistemas. Evalúa la transparencia algorítmica con base en
-            información pública disponible, no la calidad, legalidad ni el impacto del sistema en
-            sí.
-          </p>
-        </footer>
       </main>
+      <Footer />
     </>
   );
 }

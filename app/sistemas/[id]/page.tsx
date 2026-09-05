@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { NavBar } from "@/components/nav-bar";
+import { Footer } from "@/components/footer";
 import { ScoreBadge } from "@/components/score-badge";
 import { DimensionBar } from "@/components/dimension-bar";
 import { IndicadoresTable } from "@/components/indicadores-table";
@@ -64,7 +65,7 @@ export default async function SistemaPage({ params }: SistemaPageProps) {
         <section className="bg-navy-900 px-6 py-10 text-white">
           <div className="mx-auto max-w-6xl">
             <nav className="mb-6 text-sm text-neutral-300">
-              <Link href="/" className="hover:text-white">
+              <Link href="/explorar" className="hover:text-white">
                 Explorar
               </Link>{" "}
               / <span className="capitalize">{sistema.institucion.sector}</span> /{" "}
@@ -198,14 +199,8 @@ export default async function SistemaPage({ params }: SistemaPageProps) {
           </section>
         </div>
 
-        {/* Disclaimer fijo (SCRUM-18) */}
-        <footer className="border-t border-neutral-200 bg-neutral-50 px-6 py-6 text-center">
-          <p className="mx-auto max-w-3xl text-xs text-neutral-500">
-            OITA no certifica ni aprueba sistemas. Evalúa la transparencia algorítmica con base en
-            información pública disponible.
-          </p>
-        </footer>
       </main>
+      <Footer />
     </>
   );
 }

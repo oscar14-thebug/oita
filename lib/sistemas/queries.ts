@@ -116,24 +116,31 @@ export interface EstadisticasCatalogo {
   paises: number;
   sectores: number;
   indicadoresItad: number;
+  ultimaActualizacion: string | null;
 }
 
 /** Estadísticas reales del catálogo público, para la fila de stats del Home. */
 export async function obtenerEstadisticasCatalogo(): Promise<EstadisticasCatalogo> {
-  const [sistemasEvaluados, institucionesConPublicado, indicadoresItad] = await Promise.all([
-    prisma.sistema.count({ where: { publicado: true } }),
-    prisma.institucion.findMany({
-      where: { sistemas: { some: { publicado: true } } },
-      select: { pais: true, sector: true },
-    }),
-    prisma.indicador.count({ where: { activo: true } }),
-  ]);
+  const [sistemasEvaluados, institucionesConPublicado, indicadoresItad, ultimaRevision] =
+    await Promise.all([
+      prisma.sistema.count({ where: { publicado: true } }),
+      prisma.institucion.findMany({
+        where: { sistemas: { some: { publicado: true } } },
+        select: { pais: true, sector: true },
+      }),
+      prisma.indicador.count({ where: { activo: true } }),
+      prisma.sistema.aggregate({
+        where: { publicado: true },
+        _max: { fechaUltimaRevision: true },
+      }),
+    ]);
 
   return {
     sistemasEvaluados,
     paises: new Set(institucionesConPublicado.map((i) => i.pais)).size,
     sectores: new Set(institucionesConPublicado.map((i) => i.sector)).size,
     indicadoresItad,
+    ultimaActualizacion: ultimaRevision._max.fechaUltimaRevision?.toISOString() ?? null,
   };
 }
 
