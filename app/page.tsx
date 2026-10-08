@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { NavBar } from "@/components/nav-bar";
 import { Footer } from "@/components/footer";
@@ -149,32 +150,43 @@ export default async function Home() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="bg-navy-900 px-6 py-20 text-center text-white">
-          <h1 className="mx-auto max-w-2xl text-4xl font-bold text-balance">
-            Transparencia algorítmica para democracias más fuertes
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-neutral-200">
-            Evaluamos públicamente los sistemas de decisión automatizada que usan instituciones
-            públicas de la región, con base en la metodología ITAD.
-          </p>
+        <section className="relative overflow-hidden px-6 py-20 text-center text-white">
+          <Image
+            src="/images/hero-bg.jpg"
+            alt=""
+            fill
+            priority
+            className="absolute inset-0 -z-10 object-cover"
+          />
+          <div className="absolute inset-0 z-0 bg-navy-900/70" aria-hidden />
 
-          <form
-            action="/explorar"
-            className="mx-auto mt-8 flex max-w-xl overflow-hidden rounded-full bg-white"
-          >
-            <input
-              type="text"
-              name="texto"
-              placeholder="Buscar por nombre de sistema o institución..."
-              className="flex-1 px-5 py-3 text-sm text-neutral-900 outline-none"
-            />
-            <button
-              type="submit"
-              className="bg-teal-500 px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+          <div className="relative z-10">
+            <h1 className="mx-auto max-w-2xl text-4xl font-bold text-balance">
+              Transparencia algorítmica para democracias más fuertes
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-lg text-neutral-200">
+              Evaluamos públicamente los sistemas de decisión automatizada que usan instituciones
+              públicas de la región, con base en la metodología ITAD.
+            </p>
+
+            <form
+              action="/explorar"
+              className="mx-auto mt-8 flex max-w-xl overflow-hidden rounded-full bg-white"
             >
-              Buscar
-            </button>
-          </form>
+              <input
+                type="text"
+                name="texto"
+                placeholder="Buscar por nombre de sistema o institución..."
+                className="flex-1 px-5 py-3 text-sm text-neutral-900 outline-none"
+              />
+              <button
+                type="submit"
+                className="bg-teal-500 px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+              >
+                Buscar
+              </button>
+            </form>
+          </div>
         </section>
 
         {/* Cuerpo: contexto | stats+destacados | ficha de ejemplo */}
