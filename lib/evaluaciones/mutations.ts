@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { validarPuntuacion } from "./reglas";
+import { recalcularYGuardarScore } from "@/lib/scoring/calcularScoreITAD";
 
 export class PuntuacionDuplicadaError extends Error {}
 
@@ -37,7 +38,7 @@ export async function crearPuntuacion(input: CrearPuntuacionInput) {
   });
 
   try {
-    return await prisma.puntuacion.create({
+    const puntuacion = await prisma.puntuacion.create({
       data: {
         sistemaId: input.sistemaId,
         indicadorId: input.indicadorId,
@@ -52,6 +53,12 @@ export async function crearPuntuacion(input: CrearPuntuacionInput) {
       },
       include: { fuentesPuntuaciones: true },
     });
+
+    // Recalcula/cachea el score tras cada puntuación nueva: con un solo evaluador
+    // puede ser la última que faltaba para completar la ficha (ver calcularScoreITAD).
+    await recalcularYGuardarScore(input.sistemaId);
+
+    return puntuacion;
   } catch (error) {
     if (esErrorDeUnicidad(error)) {
       throw new PuntuacionDuplicadaError(

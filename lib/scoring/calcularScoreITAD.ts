@@ -16,8 +16,14 @@ export interface ScoreITAD {
  * "Aplicable" excluye los indicadores marcados N/A (`Puntuacion.esNoAplicable`) del
  * numerador y del denominador. El mismo criterio se aplica por dimensión, en escala 0-3.
  *
- * `valorFinal` viene de `ControlCalidad` (post control de calidad), no de las
- * puntuaciones individuales de cada evaluador.
+ * El valor final de un indicador se resuelve así:
+ *   - Si existe `ControlCalidad` (doble evaluación ya adjudicada), se usa su `valorFinal`.
+ *   - Si no existe pero hay exactamente UNA puntuación para ese indicador (un solo
+ *     evaluador cargó ese indicador, sin discrepancia posible), se usa su `valor`
+ *     directamente como final.
+ *   - Si hay 2+ puntuaciones sin adjudicar todavía (discrepancia pendiente de
+ *     resolución vía `resolverControlCalidad`), el indicador se excluye del cálculo
+ *     hasta que se adjudique.
  *
  * Cobertura documental = % del peso aplicable cuyo indicador tiene valorFinal >= 1
  * Y al menos una fuente asociada (los indicadores en 0 se interpretan como "no hay
@@ -53,6 +59,12 @@ export async function calcularScoreITAD(sistemaId: string): Promise<ScoreITAD> {
   const indicadoresConFuente = new Set(
     puntuaciones.filter((p) => p.fuentesPuntuaciones.length > 0).map((p) => p.indicadorId),
   );
+  const puntuacionesPorIndicador = new Map<string, typeof puntuaciones>();
+  for (const p of puntuaciones) {
+    const lista = puntuacionesPorIndicador.get(p.indicadorId) ?? [];
+    lista.push(p);
+    puntuacionesPorIndicador.set(p.indicadorId, lista);
+  }
 
   const distribucion = { "0": 0, "1": 0, "2": 0, "3": 0, na: 0 };
   let sumaPonderada = 0;
@@ -67,9 +79,19 @@ export async function calcularScoreITAD(sistemaId: string): Promise<ScoreITAD> {
     }
 
     const control = controlPorIndicador.get(indicador.id);
-    if (!control) continue; // todavía sin evaluar / sin adjudicar
+    let valor: number;
 
-    const valor = control.valorFinal;
+    if (control) {
+      valor = control.valorFinal;
+    } else {
+      // Sin adjudicación de control de calidad: solo se puede tomar el valor
+      // directo si hay un único evaluador (sin discrepancia posible). Con 2+
+      // puntuaciones sin adjudicar, o ninguna, el indicador queda pendiente.
+      const lista = puntuacionesPorIndicador.get(indicador.id) ?? [];
+      if (lista.length !== 1 || lista[0].valor === null) continue;
+      valor = lista[0].valor;
+    }
+
     distribucion[String(valor) as "0" | "1" | "2" | "3"] += 1;
 
     sumaPonderada += indicador.pesoInterno * valor;

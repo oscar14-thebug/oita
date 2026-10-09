@@ -22,9 +22,13 @@ const INDICADORES = [
   { id: "I-4", pesoInterno: 5, dimensionId: "D2", dimension: { nombre: "D2" } },
 ];
 
-function puntuacion(indicadorId: string, opts: { esNoAplicable?: boolean; conFuente?: boolean }) {
+function puntuacion(
+  indicadorId: string,
+  opts: { valor?: number | null; esNoAplicable?: boolean; conFuente?: boolean },
+) {
   return {
     indicadorId,
+    valor: opts.valor ?? null,
     esNoAplicable: opts.esNoAplicable ?? false,
     fuentesPuntuaciones: opts.conFuente ? [{ id: "fp-1" }] : [],
   };
@@ -87,6 +91,39 @@ describe("calcularScoreITAD", () => {
     // score = 100 * (28/11/3) = 84.85
     expect(resultado.scoreTotal).toBeCloseTo(84.85, 1);
     expect(resultado.distribucion).toEqual({ "0": 0, "1": 0, "2": 1, "3": 1, na: 2 });
+  });
+
+  it("usa el valor directo de un único evaluador cuando no hay control_calidad", async () => {
+    controlCalidadFindManyMock.mockResolvedValue([]);
+    puntuacionFindManyMock.mockResolvedValue([
+      puntuacion("I-1", { valor: 3, conFuente: true }),
+      puntuacion("I-2", { valor: 2, conFuente: true }),
+      puntuacion("I-3", { valor: 3, conFuente: true }),
+      puntuacion("I-4", { valor: 1 }),
+    ]);
+
+    const resultado = await calcularScoreITAD("sistema-un-evaluador");
+
+    expect(resultado.estado).toBe("evaluado");
+    expect(resultado.scoreTotal).toBeCloseTo(76.67, 1);
+    expect(resultado.distribucion).toEqual({ "0": 0, "1": 1, "2": 1, "3": 2, na: 0 });
+  });
+
+  it("excluye indicadores con 2+ puntuaciones sin adjudicar todavía vía control_calidad", async () => {
+    controlCalidadFindManyMock.mockResolvedValue([]);
+    puntuacionFindManyMock.mockResolvedValue([
+      puntuacion("I-1", { valor: 3, conFuente: true }),
+      // I-2 tiene dos evaluadores con discrepancia aún sin resolver: no cuenta.
+      puntuacion("I-2", { valor: 1 }),
+      puntuacion("I-2", { valor: 3 }),
+    ]);
+
+    const resultado = await calcularScoreITAD("sistema-discrepancia-pendiente");
+
+    expect(resultado.estado).toBe("evaluado");
+    // Solo I-1 (peso 6) entra; I-2/I-3/I-4 quedan pendientes (sin puntuación o sin adjudicar).
+    expect(resultado.scoreTotal).toBeCloseTo(100, 1);
+    expect(resultado.distribucion).toEqual({ "0": 0, "1": 0, "2": 0, "3": 1, na: 0 });
   });
 
   it("devuelve estado sin_evaluar (no lanza error) si el sistema no tiene puntuaciones", async () => {
