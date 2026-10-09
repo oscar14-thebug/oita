@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { resolverValorFinalIndicador } from "@/lib/scoring/resolverValorFinalIndicador";
 
 export interface ScoreITAD {
   estado: "evaluado" | "sin_evaluar";
@@ -79,19 +80,12 @@ export async function calcularScoreITAD(sistemaId: string): Promise<ScoreITAD> {
     }
 
     const control = controlPorIndicador.get(indicador.id);
-    let valor: number;
+    const lista = puntuacionesPorIndicador.get(indicador.id) ?? [];
+    const resolucion = resolverValorFinalIndicador(lista, control);
 
-    if (control) {
-      valor = control.valorFinal;
-    } else {
-      // Sin adjudicación de control de calidad: solo se puede tomar el valor
-      // directo si hay un único evaluador (sin discrepancia posible). Con 2+
-      // puntuaciones sin adjudicar, o ninguna, el indicador queda pendiente.
-      const lista = puntuacionesPorIndicador.get(indicador.id) ?? [];
-      if (lista.length !== 1 || lista[0].valor === null) continue;
-      valor = lista[0].valor;
-    }
+    if (resolucion.valor === null) continue; // pendiente de adjudicar, o sin evaluar
 
+    const valor = resolucion.valor;
     distribucion[String(valor) as "0" | "1" | "2" | "3"] += 1;
 
     sumaPonderada += indicador.pesoInterno * valor;

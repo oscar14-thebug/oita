@@ -20,9 +20,11 @@ const BADGE_CLASSES = {
 function PillPuntuacion({
   valor,
   esNoAplicable,
+  pendienteAdjudicacion,
 }: {
   valor: number | null;
   esNoAplicable: boolean;
+  pendienteAdjudicacion: boolean;
 }) {
   if (esNoAplicable) {
     return (
@@ -34,8 +36,8 @@ function PillPuntuacion({
 
   if (valor === null) {
     return (
-      <Badge variant="outline" className="text-neutral-500">
-        Sin evaluar
+      <Badge variant="outline" className={pendienteAdjudicacion ? "text-warning-500" : "text-neutral-500"}>
+        {pendienteAdjudicacion ? "Pendiente de adjudicación" : "Sin evaluar"}
       </Badge>
     );
   }
@@ -84,7 +86,11 @@ export function IndicadoresTable({ puntuaciones }: { puntuaciones: PuntuacionFic
                 <TableCell>{fila.preguntaEvaluativa}</TableCell>
                 <TableCell className="text-right">{fila.fuentes.length}</TableCell>
                 <TableCell className="text-right">
-                  <PillPuntuacion valor={fila.valorFinal} esNoAplicable={fila.esNoAplicable} />
+                  <PillPuntuacion
+                    valor={fila.valorFinal}
+                    esNoAplicable={fila.esNoAplicable}
+                    pendienteAdjudicacion={fila.pendienteAdjudicacion}
+                  />
                 </TableCell>
               </TableRow>
             ))}

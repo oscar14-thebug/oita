@@ -3,6 +3,7 @@ import { Prisma } from "@/lib/generated/prisma/client";
 import { agruparFuentesPorIndicador, type FuenteResumen } from "@/lib/fuentes/queries";
 import { calcularResumenSistema } from "@/lib/evaluaciones/resumen";
 import { getScoreBand } from "@/lib/ui/getScoreBand";
+import { resolverValorFinalIndicador } from "@/lib/scoring/resolverValorFinalIndicador";
 
 const LIMIT_DEFAULT = 20;
 const LIMIT_MAXIMO = 100;
@@ -294,9 +295,11 @@ export interface PuntuacionFicha {
   preguntaEvaluativa: string;
   dimensionId: string;
   dimension: string;
-  /** null si el indicador todavía no tiene un valor final adjudicado (control_calidad). */
+  /** null si el indicador todavía no tiene un valor final resuelto (ver resolverValorFinalIndicador). */
   valorFinal: number | null;
   esNoAplicable: boolean;
+  /** true si hay 2+ puntuaciones sin adjudicar vía control_calidad (discrepancia potencial sin resolver). */
+  pendienteAdjudicacion: boolean;
   decisionAdjudicacion: string | null;
   fuentes: FuenteResumen[];
 }
@@ -334,7 +337,7 @@ export async function getSistemaDetalle(id: string, opciones?: { incluirBorrador
 
   if (!sistema) return null;
 
-  const [dimensiones, indicadores, controlCalidad, puntuacionesNa, fuentesPorIndicador, resumen] =
+  const [dimensiones, indicadores, controlCalidad, todasLasPuntuaciones, fuentesPorIndicador, resumen] =
     await Promise.all([
       prisma.dimension.findMany({ orderBy: { orden: "asc" } }),
       prisma.indicador.findMany({
@@ -344,26 +347,44 @@ export async function getSistemaDetalle(id: string, opciones?: { incluirBorrador
       }),
       prisma.controlCalidad.findMany({ where: { sistemaId: id } }),
       prisma.puntuacion.findMany({
-        where: { sistemaId: id, esNoAplicable: true },
-        select: { indicadorId: true },
+        where: { sistemaId: id },
+        select: { indicadorId: true, valor: true, esNoAplicable: true },
       }),
       agruparFuentesPorIndicador(id),
       calcularResumenSistema(id),
     ]);
 
   const controlPorIndicador = new Map(controlCalidad.map((c) => [c.indicadorId, c]));
-  const indicadoresNa = new Set(puntuacionesNa.map((p) => p.indicadorId));
+  const indicadoresNa = new Set(
+    todasLasPuntuaciones.filter((p) => p.esNoAplicable).map((p) => p.indicadorId),
+  );
+  const puntuacionesPorIndicador = new Map<string, { valor: number | null }[]>();
+  for (const p of todasLasPuntuaciones) {
+    const lista = puntuacionesPorIndicador.get(p.indicadorId) ?? [];
+    lista.push({ valor: p.valor });
+    puntuacionesPorIndicador.set(p.indicadorId, lista);
+  }
 
+  // Misma regla de resolución que calcularScoreITAD (ver resolverValorFinalIndicador):
+  // adjudicado (control_calidad) > un solo evaluador > pendiente de adjudicar (2+
+  // puntuaciones sin resolver) > sin evaluar. Así la ficha pública y el score total
+  // nunca se contradicen entre sí.
   const puntuaciones: PuntuacionFicha[] = indicadores.map((indicador) => {
     const control = controlPorIndicador.get(indicador.id);
+    const esNoAplicable = indicadoresNa.has(indicador.id);
+    const resolucion = esNoAplicable
+      ? { estado: "sin_evaluar" as const, valor: null }
+      : resolverValorFinalIndicador(puntuacionesPorIndicador.get(indicador.id) ?? [], control);
+
     return {
       indicadorId: indicador.id,
       indicador: indicador.nombre,
       preguntaEvaluativa: indicador.preguntaEvaluativa,
       dimensionId: indicador.dimensionId,
       dimension: indicador.dimension.nombre,
-      valorFinal: control?.valorFinal ?? null,
-      esNoAplicable: indicadoresNa.has(indicador.id),
+      valorFinal: resolucion.valor,
+      esNoAplicable,
+      pendienteAdjudicacion: resolucion.estado === "pendiente_adjudicacion",
       decisionAdjudicacion: control?.decisionAdjudicacion ?? null,
       fuentes: fuentesPorIndicador.get(indicador.id) ?? [],
     };
