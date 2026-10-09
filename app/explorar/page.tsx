@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { NavBar } from "@/components/nav-bar";
 import { Footer } from "@/components/footer";
 import { SystemCard } from "@/components/system-card";
@@ -9,17 +10,25 @@ import {
   obtenerOpcionesFiltro,
 } from "@/lib/sistemas/queries";
 
+const SISTEMAS_POR_PAGINA = 12;
+
 interface ExplorarProps {
   searchParams: Promise<{
     pais?: string | string[];
     sector?: string | string[];
     institucionId?: string | string[];
     texto?: string | string[];
+    pagina?: string | string[];
   }>;
 }
 
 function primero(valor: string | string[] | undefined): string {
   return Array.isArray(valor) ? (valor[0] ?? "") : (valor ?? "");
+}
+
+function primerEntero(valor: string | string[] | undefined, porDefecto: number): number {
+  const n = Number.parseInt(primero(valor), 10);
+  return Number.isFinite(n) && n > 0 ? n : porDefecto;
 }
 
 function Estadistica({ valor, label }: { valor: number; label: string }) {
@@ -39,6 +48,7 @@ export default async function ExplorarPage({ searchParams }: ExplorarProps) {
     institucionId: primero(raw.institucionId),
     texto: primero(raw.texto),
   };
+  const pagina = primerEntero(raw.pagina, 1);
 
   const [resultado, estadisticas, opciones] = await Promise.all([
     listSistemas({
@@ -46,11 +56,27 @@ export default async function ExplorarPage({ searchParams }: ExplorarProps) {
       sector: filtros.sector || undefined,
       institucionId: filtros.institucionId || undefined,
       texto: filtros.texto || undefined,
-      limit: 12,
+      limit: SISTEMAS_POR_PAGINA,
+      offset: (pagina - 1) * SISTEMAS_POR_PAGINA,
     }),
     obtenerEstadisticasCatalogo(),
     obtenerOpcionesFiltro(),
   ]);
+
+  const totalPaginas = Math.max(1, Math.ceil(resultado.total / SISTEMAS_POR_PAGINA));
+
+  // Reconstruye la URL de una página destino preservando los filtros activos
+  // (los mismos query params que arma el form de filtros, más `pagina`).
+  function urlPagina(destino: number): string {
+    const params = new URLSearchParams();
+    if (filtros.pais) params.set("pais", filtros.pais);
+    if (filtros.sector) params.set("sector", filtros.sector);
+    if (filtros.institucionId) params.set("institucionId", filtros.institucionId);
+    if (filtros.texto) params.set("texto", filtros.texto);
+    if (destino > 1) params.set("pagina", String(destino));
+    const query = params.toString();
+    return query ? `/explorar?${query}` : "/explorar";
+  }
 
   return (
     <>
@@ -169,6 +195,34 @@ export default async function ExplorarPage({ searchParams }: ExplorarProps) {
                 <SystemCard key={sistema.id} sistema={sistema} />
               ))}
             </div>
+          )}
+
+          {totalPaginas > 1 && (
+            <nav className="mt-8 flex items-center justify-center gap-4">
+              {pagina > 1 ? (
+                <Button variant="outline" asChild>
+                  <Link href={urlPagina(pagina - 1)}>Anterior</Link>
+                </Button>
+              ) : (
+                <Button variant="outline" disabled>
+                  Anterior
+                </Button>
+              )}
+
+              <span className="text-sm text-neutral-500">
+                Página {pagina} de {totalPaginas}
+              </span>
+
+              {pagina < totalPaginas ? (
+                <Button variant="outline" asChild>
+                  <Link href={urlPagina(pagina + 1)}>Siguiente</Link>
+                </Button>
+              ) : (
+                <Button variant="outline" disabled>
+                  Siguiente
+                </Button>
+              )}
+            </nav>
           )}
         </section>
       </main>
